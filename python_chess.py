@@ -1,10 +1,6 @@
-"""CLI CHESS GAME"""   #GLOBALBOTMOVE | BRANCH DUPLICATION | CHOOSE ENGINE DEPTH
+"""CLI CHESS GAME"""   #BRANCH DUPLICATION | CHOOSE ENGINE DEPTH | PRINT ONLY MOST RECENT MOVE
 
 import chess, os, requests, random
-
-board = chess.Board()
-listOfMoves=[]
-globalbotMove = None #making bot move accesible for logging
 
 def clear_terminal():
     #clear terminal
@@ -16,23 +12,23 @@ def clear_terminal():
     return
 
 # register and print moves
-def loggingMoves(player_colour, globalbotMove=None, player_move=None):
+def loggingMoves(player_colour, botMove=None, player_move=None):
     #logs the move of whoever played first.
     # when the second person plays, it pops it from the list to add both as one line
     if player_colour:
-        if globalbotMove==None:
+        if botMove==None:
             listOfMoves.append(player_move)
         else:
             listOfMoves.pop()
-            listOfMoves.append(player_move+", "+globalbotMove)
+            listOfMoves.append(player_move+", "+botMove)
     else:
         if player_move == None:
-            listOfMoves.append(globalbotMove)
+            listOfMoves.append(botMove)
         else:
             listOfMoves.pop()
-            listOfMoves.append(str(globalbotMove)+", "+player_move)
+            listOfMoves.append(str(botMove)+", "+player_move)
 
-    for i, move in enumerate(listOfMoves, start=1):
+    for i, move in enumerate(listOfMoves, start=1): #prints as a numbered list
         print(f"{i}. {move}")
 
     return
@@ -44,7 +40,6 @@ def push_player_move(player_move):
 # STOCKFISH MOVES
 def push_bot_move():
     """get move from stockfish, clear terminal, record move"""
-    global globalbotMove
     try:
         url = "https://stockfish.online/api/s/v2.php"
         parameters = {"fen": board.fen(), "depth": 5}
@@ -53,16 +48,18 @@ def push_bot_move():
         best_move = move_dict["bestmove"].split() #access best move and convert to move object, splits at whitespaces by default hence no argument
         bot_move = board.san(chess.Move.from_uci(best_move[1])) #one liner converting from uci to san to record in history
         board.push_san(bot_move)
-        globalbotMove=bot_move
     
-    except (requests.exceptions.RequestException, KeyError):
+    except (requests.exceptions.RequestException, KeyError, ValueError):
+
         #random move generator if API fails
         legalMoves = list(board.legal_moves)
         bot_move = board.san(random.choice(legalMoves))
         board.push_san(bot_move)
-        globalbotMove=bot_move
     
-    return
+    return bot_move
+
+board = chess.Board("r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 4 4")
+listOfMoves=[]
 
 #Body of program
 def main():
@@ -70,8 +67,7 @@ def main():
     print("Enter 'stop' to end game!")
     print("Moves must be in SAN")
     while True:
-        print("Black or White?")
-        option=input(">>>")
+        option=input("Black or White?: ")
 
         #setting player_colour as bool for easier handling
         if option.lower().strip() == "white":
@@ -83,7 +79,6 @@ def main():
         elif option.lower().strip() == "stop":
             print("Game Terminated")
             return
-            break
         else:
             print("Spelling or Invalid option")
 
@@ -102,13 +97,12 @@ def main():
                     break
             else:   
                 if board.turn: #check whos turn it is
-                    push_bot_move()
+                    botMove=push_bot_move()
                     clear_terminal()
                     print(str(board)[::-1]) #flip board
-                    loggingMoves(player_colour=player_colour, globalbotMove=globalbotMove)
+                    loggingMoves(player_colour=player_colour, botMove=botMove)
                 else:
-                    print("Enter move")
-                    player_move = input(">>>")
+                    player_move = input("Enter move: ")
                     if player_move.lower().strip()=='stop':
                         print("GameTerminated")
                         break
@@ -117,10 +111,10 @@ def main():
                         push_player_move(player_move)
                         clear_terminal()
                         print(str(board)[::-1])
-                        loggingMoves(player_colour, player_move=player_move, globalbotMove=globalbotMove)
+                        loggingMoves(player_colour, player_move=player_move, botMove=botMove)
 
                     except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError):
-                        print("Invalid Move")              
+                        print("Invalid Move")            
 
     else: #if user selects white
         print(board)
@@ -137,8 +131,7 @@ def main():
                     break
             else:   
                 if board.turn: #check whos turn it is
-                    print("Enter move (SAN)")
-                    player_move = input(">>>")
+                    player_move = input("Enter move: ")
                     if player_move.lower().strip()=='stop':
                         print("GameTerminated")
                         break
@@ -152,10 +145,10 @@ def main():
                         print("Invalid move")
 
                 else:
-                    push_bot_move()
+                    botMove=push_bot_move()
                     clear_terminal()
                     print(board)
-                    loggingMoves(player_colour, globalbotMove, player_move)
+                    loggingMoves(player_colour, botMove, player_move)
     
     return
 
