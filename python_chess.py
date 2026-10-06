@@ -1,6 +1,8 @@
-"""CLI CHESS GAME"""   #BRANCH DUPLICATION | CHOOSE ENGINE DEPTH | PRINT ONLY MOST RECENT MOVE
+"""CLI CHESS GAME"""   #CHOOSE ENGINE DEPTH | PRINT ONLY MOST RECENT MOVE
 
 import chess, os, requests, random
+
+board=chess.Board()
 
 def clear_terminal():
     #clear terminal
@@ -9,33 +11,20 @@ def clear_terminal():
     print("Enter 'stop' to end game")
     print("Moves must be in SAN")
 
-    return
-
 # register and print moves
-def loggingMoves(player_colour, botMove=None, player_move=None):
-    #logs the move of whoever played first.
-    # when the second person plays, it pops it from the list to add both as one line
-    if player_colour:
-        if botMove==None:
-            listOfMoves.append(player_move)
-        else:
-            listOfMoves.pop()
-            listOfMoves.append(player_move+", "+botMove)
+listOfMoves=[]
+def logging_moves(turn, move): #registers move based on whos turn it is.
+    if turn:
+        listOfMoves.append(move)
     else:
-        if player_move == None:
-            listOfMoves.append(botMove)
-        else:
-            listOfMoves.pop()
-            listOfMoves.append(str(botMove)+", "+player_move)
+        listOfMoves[-1] = f"{listOfMoves[-1]}, {move}"
 
-    for i, move in enumerate(listOfMoves, start=1): #prints as a numbered list
-        print(f"{i}. {move}")
+    for i, move_made in enumerate(listOfMoves, start=1): #prints as a numbered list
+        print(f"{i}. {move_made}")
 
-    return
 
 def push_player_move(player_move):
     board.push_san(player_move)
-    return
 
 # STOCKFISH MOVES
 def push_bot_move():
@@ -46,26 +35,67 @@ def push_bot_move():
         response = requests.get(url, params=parameters, timeout=5)
         move_dict = response.json()
         best_move = move_dict["bestmove"].split() #access best move and convert to move object, splits at whitespaces by default hence no argument
-        bot_move = board.san(chess.Move.from_uci(best_move[1])) #one liner converting from uci to san to record in history
+        bot_move = board.san(chess.Move.from_uci(best_move[1])) #one-liner converting from uci to san to record in history
         board.push_san(bot_move)
-    
+
     except (requests.exceptions.RequestException, KeyError, ValueError):
 
         #random move generator if API fails
-        legalMoves = list(board.legal_moves)
-        bot_move = board.san(random.choice(legalMoves))
+        legal_moves = list(board.legal_moves)
+        bot_move = board.san(random.choice(legal_moves))
         board.push_san(bot_move)
-    
+
     return bot_move
 
-board = chess.Board()
-listOfMoves=[]
+
+def gameplay(player_colour):
+    while True:
+        if board.is_game_over(claim_draw=True): #check if game is over
+            print(f"GameOver")
+            outcome = board.outcome(claim_draw=True)
+            if outcome.termination.name != 'CHECKMATE':
+                print("The game is a draw")
+                break
+            else:
+                winner = 'White' if outcome.winner else 'Black'
+                print(f"{winner} won by {outcome.termination.name}")
+                break
+
+        else:
+            turn = board.turn
+            if player_colour == board.turn:
+                player_move = input("Enter move: ")
+                if player_move.lower().strip() == "stop":
+                    print("GameTerminated")
+                    break
+                try:
+                    push_player_move(player_move)
+                    move=player_move
+                    clear_terminal()
+                    if not player_colour:
+                        flipped_board = str(board)[::-1]
+                        print(flipped_board)
+                    else:
+                        print(board)
+                    logging_moves(turn=turn, move=move)
+                except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError):
+                    print("Invalid Move")
+            else:
+                move=push_bot_move()
+                clear_terminal()
+                if not player_colour:
+                    flipped_board = str(board)[::-1]
+                    print(flipped_board)
+                else:
+                    print(board)
+                logging_moves(turn=turn, move=move)
 
 #Body of program
 def main():
     print("CLI chess game")
     print("Enter 'stop' to end game!")
     print("Moves must be in SAN")
+    print(board)
     while True:
         option=input("Black or White?: ")
 
@@ -82,75 +112,7 @@ def main():
         else:
             print("Spelling or Invalid option")
 
-    #if user selects black
-    if not player_colour:
-        while True:
-            if board.is_game_over(claim_draw=True): #check if game is over
-                print(f"GameOver")
-                outcome = board.outcome(claim_draw=True)
-                if outcome.termination.name != 'CHECKMATE':
-                    print("The game is a draw")
-                    break
-                else:
-                    winner = 'White' if outcome.winner else 'Black'
-                    print(f"{winner} won by {outcome.termination.name}")
-                    break
-            else:   
-                if board.turn: #check whos turn it is
-                    botMove=push_bot_move()
-                    clear_terminal()
-                    print(str(board)[::-1]) #flip board
-                    loggingMoves(player_colour=player_colour, botMove=botMove)
-                else:
-                    player_move = input("Enter move: ")
-                    if player_move.lower().strip()=='stop':
-                        print("GameTerminated")
-                        break
-
-                    try:
-                        push_player_move(player_move)
-                        clear_terminal()
-                        print(str(board)[::-1])
-                        loggingMoves(player_colour, player_move=player_move, botMove=botMove)
-
-                    except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError):
-                        print("Invalid Move")            
-
-    else: #if user selects white
-        print(board)
-        while True:
-            if board.is_game_over(claim_draw=True): #check if game is over
-                print(f"GameOver")
-                outcome = board.outcome(claim_draw=True)
-                if outcome.termination.name != 'CHECKMATE':
-                    print("The game is a draw")
-                    break
-                else:
-                    winner = 'White' if outcome.winner else 'Black'
-                    print(f"{winner} won by {outcome.termination.name}")
-                    break
-            else:   
-                if board.turn: #check whos turn it is
-                    player_move = input("Enter move: ")
-                    if player_move.lower().strip()=='stop':
-                        print("GameTerminated")
-                        break
-                    try:
-                        push_player_move(player_move)
-                        clear_terminal()
-                        print(board)
-                        loggingMoves(player_colour, player_move=player_move)
-
-                    except (ValueError, chess.IllegalMoveError, chess.AmbiguousMoveError):
-                        print("Invalid move")
-
-                else:
-                    botMove=push_bot_move()
-                    clear_terminal()
-                    print(board)
-                    loggingMoves(player_colour, botMove, player_move)
-    
-    return
+    gameplay(player_colour=player_colour)
 
 if __name__ == '__main__':
     main()
